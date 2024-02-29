@@ -204,22 +204,14 @@ const internalPageChecker = async () => {
   const { data } = await supabase
     .from("crawling_internal_link")
     .select()
-    .neq("message", "Done");
+    .neq("message", "Done")
+    .neq("status", true);
   //   console.log(data, "length");
 
   if (data?.length > 0) {
     const dataUrl = data.map((element) => {
       return element.page_url;
     });
-    // const dateTime = data.map((element) => {
-    //   const presentDate = Date.now();
-    //   const oldDate = new Date(element.created_at);
-    //   //   console.log(oldDate);
-    //   const compare = presentDate - oldDate;
-    //   console.log(new Date(compare));
-    //   return new Date(element.created_at);
-    // });
-    // console.log(dateTime);
     dataUrl.forEach((link) => {
       crawl({ url: link, ignore: "/search" }).catch((error) => {
         // console.log("Error:>>> ", error.message)

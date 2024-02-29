@@ -1,54 +1,59 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
-const { URL } = require("url");
-
-const seedUrl = "https://websoham.com";
-const whitelistDomains = ["trusteddomain.com"];
-const blacklistDomains = ["maliciousdomain.com"];
-const maxCrawlDepth = 2;
-
-const crawl = async (url, depth = 0) => {
+const { supabase } = require("../config/config");
+let counter = 1;
+const locUrlExtractor = async (currentUrl, domain) => {
+  let links = [];
   try {
-    const response = await axios.get(url);
-    const $ = cheerio.load(response.data);
-
-    const internalLinks = [];
-    const externalLinks = [];
-
-    $("a").each((index, element) => {
-      const href = $(element).attr("href");
-      if (href) {
-        const absoluteUrl = new URL(href, url).toString();
-        const parsedUrl = new URL(absoluteUrl);
-
-        if (parsedUrl.origin === new URL(seedUrl).origin) {
-          // Internal link
-          internalLinks.push(absoluteUrl);
-        } else if (
-          whitelistDomains.includes(parsedUrl.hostname) &&
-          !blacklistDomains.includes(parsedUrl.hostname)
-        ) {
-          // External link from whitelisted domain
-          externalLinks.push(absoluteUrl);
+    if (!currentUrl.includes("xml")) {
+      return links;
+    }
+    const response = await axios.get(currentUrl);
+    let $ = cheerio.load(response.data);
+    console.log(`crawling at Page no : ${counter++}\n------------------------`);
+    const locUrls = $("loc");
+    if (locUrls?.length > 0) {
+      for (const locUrl of locUrls) {
+        let link = $(locUrl).text();
+        // console.log(link, ">>>>>>>>");
+        if (link.includes(domain)) {
+          if (link.includes(".xml")) {
+            const locLinks = await locUrlExtractor(link, domain);
+            if (locLinks?.length > 0) {
+              for (const locLink of locLinks) {
+                links.push(locLink);
+                const { data } = await supabase
+                  .from("crawling_internal_link")
+                  .insert({ page_url: locLink });
+                // console.log(data, "data.........");
+              }
+            }
+          } else {
+            links.push(link);
+            const { data } = await supabase
+              .from("crawling_internal_link")
+              .insert({ page_url: link });
+            // console.log(data, "data.........");
+          }
         }
       }
-    });
-
-    // Apply additional conditions or processing based on your requirements
-
-    if (depth < maxCrawlDepth) {
-      // Recursively crawl internal links
-      for (const internalLink of internalLinks) {
-        await crawl(internalLink, depth + 1);
-      }
     }
-
-    console.log(
-      `Depth ${depth}: Internal Links - ${internalLinks.length}, External Links - ${externalLinks.length}`
-    );
   } catch (error) {
-    console.error(`Error crawling ${url}: ${error.message}`);
+    console.log("locUrlExtractor Error :", error.message);
   }
+  return links;
 };
 
-crawl(seedUrl);
+if (process.argv.length > 2) {
+  const baseUrl = `https://${process.argv[2]}/sitemap.xml`;
+  const domain = new URL(baseUrl).hostname.split(".").slice(-2).join(".");
+  console.log(baseUrl, "baseurl");
+
+  locUrlExtractor(baseUrl, domain)
+    .then((reuslt) => {
+      console.log(reuslt, "<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>");
+    })
+    .catch((e) => console.log(e.message));
+} else {
+  console.log("No url found.");
+}
