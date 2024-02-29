@@ -80,15 +80,15 @@ const crawl = async ({ url, ignore }) => {
     const links = $("a")
       .map((i, link) => link.attribs.href)
       .get();
-    // if (seenUrls[url]) {
-    //   await supabase.from("crawling_internal_link").upsert(
-    //     { page_url: url, status: true },
-    //     {
-    //       onConflict: ["page_url"],
-    //       updateColumns: ["status"],
-    //     }
-    //   );
-    // }
+    if (seenUrls[url]) {
+      await supabase.from("crawling_internal_link").upsert(
+        { page_url: url, status: true },
+        {
+          onConflict: ["page_url"],
+          updateColumns: ["status"],
+        }
+      );
+    }
     console.log(`Crawling At Page no.: ${counter++}\n____________________`);
 
     if (links?.length > 0) {
