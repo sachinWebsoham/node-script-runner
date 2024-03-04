@@ -4,56 +4,9 @@ const domain = new URL(baseUrl).hostname.split(".").slice(-2).join(".");
 const axios = require("axios");
 const { supabase } = require("../config/config");
 const cheerio = require("cheerio");
-const TLDs = require("./tldList");
-const ccLTD = require("./cctldList");
-// const app = require("express")();
-
+const { validDomain } = require("../utils/index.js");
 let urls = [];
 
-const validDomain = (domain) => {
-  let validDomain;
-  try {
-    const domainPart = domain.split(".").filter((part) => part !== "");
-    const partLength = domainPart.length;
-    switch (true) {
-      case partLength == 2 &&
-        (TLDs.includes(domainPart[partLength - 1]) ||
-          ccLTD.includes(domainPart[partLength - 1])):
-        validDomain = domainPart.join(".");
-        break;
-      case partLength == 3 &&
-        ccLTD.includes(domainPart[partLength - 1]) &&
-        TLDs.includes(domainPart[partLength - 2]):
-        validDomain = domainPart.join(".");
-        break;
-      case partLength == 3 && TLDs.includes(domainPart[partLength - 1]):
-        validDomain = domainPart.slice(1).join(".");
-        break;
-      case partLength == 3 && ccLTD.includes(domainPart[partLength - 1]):
-        validDomain = domainPart.slice(1).join(".");
-        break;
-      case partLength > 3 &&
-        ccLTD.includes(domainPart[partLength - 1]) &&
-        TLDs.includes(domainPart[partLength - 2]):
-        const startIndex = Math.max(0, partLength - 3);
-        validDomain = domainPart.slice(startIndex).join(".");
-        break;
-      case partLength > 3 && ccLTD.includes(domainPart[partLength - 1]):
-        const startIndex1 = Math.max(0, partLength - 2);
-        validDomain = domainPart.slice(startIndex1).join(".");
-        break;
-      case partLength > 3 && TLDs.includes(domainPart[partLength - 1]):
-        const startIndex2 = Math.max(0, partLength - 2);
-        validDomain = domainPart.slice(startIndex2).join(".");
-        break;
-      default:
-        validDomain = "Invalid domain";
-    }
-    return validDomain;
-  } catch (error) {
-    console.log("Error-validDomain:", error.message);
-  }
-};
 const externalLinkExtractor = async (currentUrl, domain) => {
   try {
     let urlFailed = [];
@@ -138,7 +91,17 @@ const crawlPages = async (baseUrl, domain) => {
     const { data } = await supabase.from("domain_page").select();
     const pageUrls = data.map((entry) => entry.page_url);
     const locUrls = await locUrlExtractor(baseUrl, domain);
-    const checkedPages = getNotIncludedUrls(locUrls, pageUrls);
+    console.log(locUrls.length, "length");
+    const dataForSave = locUrls.map((link) => {
+      return { page_url: link };
+    });
+    const datas = await supabase
+      .from("sitemap_internal_link")
+      .upsert(dataForSave, { onConflict: ["id"] }, { action: "ignore" });
+
+    console.log(datas);
+
+    // const checkedPages = getNotIncludedUrls(locUrls, pageUrls);
     // console.log(checkedPages, ">>>>>>>");
     // console.log(checkedPages.length, "length");
     // console.log(dataToInsert.length);

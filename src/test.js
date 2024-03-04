@@ -2,46 +2,71 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const { supabase } = require("../config/config");
 let counter = 1;
-const locUrlExtractor = async (currentUrl, domain) => {
-  let links = [];
+const headers = {
+  "User-Agent":
+    "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0; SLCC2; .NET CLR 2.0.50727; .NET4.0C; .NET4.0E)",
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.5",
+  "Accept-Encoding": "gzip, deflate, br",
+  Connection: "keep-alive",
+  "Upgrade-Insecure-Requests": "1",
+  "Cache-Control": "max-age=0",
+};
+let links = [];
+
+const locUrlExtractor = async (currentUrl) => {
+  let pages = [];
   try {
-    if (!currentUrl.includes("xml")) {
-      return links;
-    }
-    const response = await axios.get(currentUrl);
+    const response = await axios.get(currentUrl, headers);
     let $ = cheerio.load(response.data);
     console.log(`crawling at Page no : ${counter++}\n------------------------`);
-    const locUrls = $("loc");
-    if (locUrls?.length > 0) {
-      for (const locUrl of locUrls) {
-        let link = $(locUrl).text();
+    const xmlPages = $("loc")
+      .map((i, loc) => $(loc).text())
+      .get();
+    if (xmlPages?.length > 0) {
+      for (const xmlPage of xmlPages) {
         // console.log(link, ">>>>>>>>");
-        if (link.includes(domain)) {
-          if (link.includes(".xml")) {
-            const locLinks = await locUrlExtractor(link, domain);
-            if (locLinks?.length > 0) {
-              for (const locLink of locLinks) {
-                links.push(locLink);
-                const { data } = await supabase
-                  .from("crawling_internal_link")
-                  .insert({ page_url: locLink });
-                // console.log(data, "data.........");
+        if (xmlPage.includes(".xml")) {
+          const response = await axios.get(xmlPage);
+          const $ = cheerio.load(response.data);
+          const xmlPages2 = $("loc")
+            .map((i, loc) => $(loc).text())
+            .get();
+          if (xmlPages2?.length > 0) {
+            for (const xmlPage2 of xmlPages2) {
+              if (xmlPage2.includes(".xml")) {
+                const response = await axios.get(xmlPage2);
+                const $ = cheerio.load(response.data);
+                const xmlPages3 = $("loc")
+                  .map((i, loc) => $(loc).text())
+                  .get();
+                if (xmlPages3?.length > 0) {
+                  pages.push(...xmlPages3);
+                  await supabase
+                    .from("sitemap_internal_link")
+                    .upsert(xmlPages3, { onConflict: ["id"] });
+                }
+              } else {
+                pages.push(xmlPage2);
+                await supabase
+                  .from("sitemap_internal_link")
+                  .insert({ page_url: xmlPage2 });
               }
             }
-          } else {
-            links.push(link);
-            const { data } = await supabase
-              .from("crawling_internal_link")
-              .insert({ page_url: link });
-            // console.log(data, "data.........");
           }
+        } else {
+          pages.push(xmlPage);
+          await supabase
+            .from("sitemap_internal_link")
+            .insert({ page_url: xmlPage });
         }
       }
     }
   } catch (error) {
     console.log("locUrlExtractor Error :", error.message);
   }
-  return links;
+  return pages;
 };
 
 if (process.argv.length > 2) {
@@ -49,11 +74,17 @@ if (process.argv.length > 2) {
   const domain = new URL(baseUrl).hostname.split(".").slice(-2).join(".");
   console.log(baseUrl, "baseurl");
 
-  locUrlExtractor(baseUrl, domain)
-    .then((reuslt) => {
-      console.log(reuslt, "<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>");
+  locUrlExtractor(baseUrl)
+    .then(async (result) => {
+      result.map((link) => {
+        return { page_url: link };
+      });
+      const uniqueArray = [...new Set(result)];
+      console.log(uniqueArray.length, "data");
     })
-    .catch((e) => console.log(e.message));
+    .catch((err) => {
+      console.log(err.message, "err");
+    });
 } else {
   console.log("No url found.");
 }
