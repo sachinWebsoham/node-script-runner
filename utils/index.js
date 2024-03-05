@@ -54,10 +54,8 @@ const validDomain = (domain) => {
 const getUrl = (link, host, defaultProtocol = "https://") => {
   try {
     if (link.includes("http")) {
-      //   console.log("http", link);
       return link;
     } else if (link.startsWith("//")) {
-      //   console.log("startsWith", `${defaultProtocol}//${link}`);
       return `${defaultProtocol}${link}`;
     } else if (link.startsWith("/")) {
       return `${defaultProtocol}${host}/${link}`;
