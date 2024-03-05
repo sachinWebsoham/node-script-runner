@@ -201,12 +201,41 @@ const crawl = async ({ url, ignore }) => {
   }
 };
 
-if (process.argv.length > 2) {
-  const url = `https://${process.argv[2]}/sitemap.xml`;
-  extractSitemap(url);
+if (true) {
+  // const url = `https://${process.argv[2]}/sitemap.xml`;
+  // const response = await
+  // const a = "https://patrika.com/sitemap-index.xml";
+  // const b = "https://patrika.com/sitemap.php";
+  // const c = "https://patrika.com/sitemap.xml.gz";
+  // const d = "https://patrika.com/sitemap.txt";
+  // const e = "https://patrika.com/sitemap/";
+  // const f = "https://patrika.com/sitemap/sitemap.xml";
+  // const g = "https://patrika.com/sitemapindex.xml";
+  // const h = "https://patrika.com/sitemap/indx.xml";
+  // const i = "https://patrika.com/sitemap/.xml";
+  // const j = "https://patrika.com/sitemap.xml";
+  // const urlArray = [a, b, c, d, e, f, g, h, i, j];
+  // urlArray.forEach(async (link) => {
+  //   try {
+  //     const header = await axios.get(link);
+  //     console.log(header.status, ">>>>>>>>>>>>>>>", link);
+  //   } catch (error) {
+  //     console.log(error.message, link);
+  //   }
+  // });
+  // extractSitemap(url);
   //   setInterval(errorInternalLinkAdd, 10000);
   //   setInterval(internalLinkAdd, 10000);
   //   setInterval(externalLinkAdd, 10000);
 } else {
   console.log("No url found.");
 }
+
+(async () => {
+  const url = "https://mediagarh.com/robots.txt";
+  const response = await axios.get(url);
+  const sitemapUrls = response.data
+    .match(/Sitemap:\s*(\S+)/g)
+    .map((match) => match.split(": ")[1]);
+  console.log(sitemapUrls, ">>>>>>>>");
+})();
