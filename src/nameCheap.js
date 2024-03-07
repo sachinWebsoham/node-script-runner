@@ -10,6 +10,7 @@ const csvToJson = require("csvtojson");
     const downloadPath = path.join(currentDirecotry, "downloads");
     const browser = await puppeteer.launch({
       headless: true,
+      args: ["--no-sandbox"],
     });
     const page = await browser.newPage();
     await page.goto(
