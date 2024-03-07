@@ -18,7 +18,7 @@ const headers = {
 const seenUrls = {};
 const seenExternalLink = {};
 let counter = 1;
-const crawl = async ({ url, ignore }) => {
+const crawl = async ({ url, ignore, domain }) => {
   try {
     if (seenUrls[url]) return;
     seenUrls[url] = true;
@@ -64,7 +64,7 @@ const crawl = async ({ url, ignore }) => {
             try {
               await supabase
                 .from("sitemap_external_link")
-                .insert({ url: validUrl });
+                .insert({ url: validUrl, domain: domain });
             } catch (error) {
               console.log(error.message, "external links");
             }
@@ -90,7 +90,7 @@ const crawl = async ({ url, ignore }) => {
   }
 };
 let locCounter = 1;
-const locUrlExtractor = async (currentUrl) => {
+const locUrlExtractor = async (currentUrl, host) => {
   let links = [];
   try {
     const response = await axios.get(currentUrl);
@@ -100,11 +100,11 @@ const locUrlExtractor = async (currentUrl) => {
     for (const locUrl of locUrls) {
       let link = $(locUrl).text();
       if (link.includes(".xml")) {
-        const locLinks = await locUrlExtractor(link);
+        const locLinks = await locUrlExtractor(link, host);
         if (locLinks?.length > 0) {
           links.push(...locLinks);
           locLinks.map((link) => {
-            return { page_url: link };
+            return { page_url: link, domain: host };
           });
           await supabase
             .from("sitemap_internal_link")
@@ -115,7 +115,9 @@ const locUrlExtractor = async (currentUrl) => {
         }
       } else {
         links.push(link);
-        await supabase.from("sitemap_internal_link").insert({ page_url: link });
+        await supabase
+          .from("sitemap_internal_link")
+          .insert({ page_url: link, domain: host });
       }
     }
     return links;
@@ -125,7 +127,7 @@ const locUrlExtractor = async (currentUrl) => {
 
   return links;
 };
-const processWithPages = async () => {
+const processWithPages = async (host) => {
   let run = true;
   console.log(run, "run");
   let crawlCounter = 2;
@@ -136,9 +138,9 @@ const processWithPages = async () => {
         .select()
         .eq("status", false)
         .eq("message", "pending")
+        .eq("domain", host)
         .order("created_at", { ascending: true })
         .limit(10);
-      //   console.log(response);
       if (data?.length > 0) {
         for (const link of data) {
           // console.log(link.page_url, "pageUrl");
@@ -146,6 +148,7 @@ const processWithPages = async () => {
           await crawl({
             url: link.page_url,
             ignore: "/search",
+            domain: link.domain,
           });
           console.log("crawl end for start", crawlCounter++);
         }
@@ -163,16 +166,19 @@ const processWithPages = async () => {
   if (process.argv.length > 2) {
     let run = false;
     const url = `https://${process.argv[2]}/robots.txt`;
+    const { host } = urlParser.parse(url);
     const response = await axios.get(url);
     const sitemapUrls = response.data
       .match(/Sitemap:\s*(\S+)/g)
       .map((match) => match.split(": ")[1]);
     if (sitemapUrls?.length > 0) {
       for (const sitemapUrl of sitemapUrls) {
-        locUrlExtractor(sitemapUrl);
+        locUrlExtractor(sitemapUrl, host);
         run = true;
       }
-      setTimeout(processWithPages, 10000);
+      setTimeout(() => {
+        processWithPages(host);
+      }, 10000);
     } else {
       console.log("No sitemap found");
     }
