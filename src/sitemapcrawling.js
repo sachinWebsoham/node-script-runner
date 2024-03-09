@@ -59,7 +59,11 @@ const crawl = async ({ url, ignore, domain }) => {
             linkHostname = linkHostname.replace(/^www\./, "");
           }
           const validUrl = validDomain(linkHostname);
-          if (validUrl && !seenExternalLink[validUrl]) {
+          if (
+            validUrl &&
+            validUrl !== "Invalid domain" &&
+            !seenExternalLink[validUrl]
+          ) {
             seenExternalLink[validUrl] = true;
             try {
               await supabase
@@ -96,7 +100,7 @@ const locUrlExtractor = async (currentUrl, host) => {
     const response = await axios.get(currentUrl);
     let $ = cheerio.load(response.data);
     const locUrls = $("loc");
-    // console.log("Sitemap extract page No:", locCounter++);
+    console.log("Sitemap extract page No:", locCounter++);
     for (const locUrl of locUrls) {
       let link = $(locUrl).text();
       if (link.includes(".xml")) {
@@ -106,9 +110,10 @@ const locUrlExtractor = async (currentUrl, host) => {
           locLinks.map((link) => {
             return { page_url: link, domain: host };
           });
-          await supabase
-            .from("sitemap_internal_link")
-            .upsert(locLinks, { onConflict: ["id"] });
+          console.log(locLinks, ">>>>>>");
+          // await supabase
+          //   .from("sitemap_internal_link")
+          //   .upsert(locLinks, { onConflict: ["id"] });
         }
         for (const locLink of locLinks) {
           links.push(locLink);
@@ -153,7 +158,6 @@ const processWithPages = async (host) => {
           console.log("crawl end for start", crawlCounter++);
         }
       } else if (data?.length == 0 && !error) {
-        console.log(response, "response");
         run = false;
       }
     } catch (e) {
@@ -164,23 +168,61 @@ const processWithPages = async (host) => {
 };
 (async () => {
   if (process.argv.length > 2) {
+    const { host } = urlParser.parse(`https://${process.argv[2]}`);
     let run = false;
-    const url = `https://${process.argv[2]}/robots.txt`;
-    const { host } = urlParser.parse(url);
-    const response = await axios.get(url);
-    const sitemapUrls = response.data
-      .match(/Sitemap:\s*(\S+)/g)
-      .map((match) => match.split(": ")[1]);
-    if (sitemapUrls?.length > 0) {
-      for (const sitemapUrl of sitemapUrls) {
-        locUrlExtractor(sitemapUrl, host);
-        run = true;
+    const sitemapUrlList = [
+      "/sitemap.xml",
+      "/sitemap_index.xml",
+      "/sitemap.txt",
+      "/sitemap/",
+      "/wp-sitemap.xml",
+      "/sitemap1.xml",
+      "/blog-sitemap.xml",
+      "/category-sitemap.xml",
+      "/tag-sitemap.xml",
+      "/sitemap.xml.gz",
+      "/sitemap/sitemap.xml",
+    ];
+    let sitemapList = [];
+    for (const sitemap of sitemapUrlList) {
+      try {
+        const url = `https://${process.argv[2]}/${sitemap}`;
+        const response = await axios.get(url);
+        if (response.status == 200) {
+          sitemapList.push(url);
+        }
+      } catch (error) {
+        // console.log(error.message);
+      }
+    }
+    if (sitemapList?.length > 0) {
+      console.log(sitemapList, ">>>>>");
+      for (const sitemap of sitemapList) {
+        console.log(host, "host");
+        locUrlExtractor(sitemap, host);
       }
       setTimeout(() => {
         processWithPages(host);
       }, 10000);
     } else {
-      console.log("No sitemap found");
+      const url = `https://${process.argv[2]}/robots.txt`;
+      const { host } = urlParser.parse(url);
+      const response = await axios.get(url);
+      const sitemapUrls = response.data
+        .match(/Sitemap:\s*(\S+)/g)
+        .map((match) => match.split(": ")[1]);
+      if (sitemapUrls?.length > 0) {
+        for (const sitemapUrl of sitemapUrls) {
+          // console.log(host, "host");
+          locUrlExtractor(sitemapUrl, host);
+          run = true;
+        }
+        setTimeout(() => {
+          processWithPages(host);
+        }, 10000);
+      } else {
+        console.log("No sitemap found");
+      }
     }
   } else {
     console.log("no url found");
