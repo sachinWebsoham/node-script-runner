@@ -125,4 +125,11 @@ const processWithPages = async (host) => {
   }
   console.log("end");
 };
-processWithPages();
+(async () => {
+  if (process.argv.length > 2) {
+    const host = process.argv[2];
+    await processWithPages(host);
+  } else {
+    console.log("no url found");
+  }
+})();
