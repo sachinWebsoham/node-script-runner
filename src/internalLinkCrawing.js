@@ -37,10 +37,15 @@ const crawl = async ({ url, ignore, domain }) => {
     if (seenUrls[url]) {
       try {
         await supabase.from("sitemap_internal_link").upsert(
-          { page_url: url, status: true, message: "done" },
+          {
+            page_url: url,
+            status: true,
+            message: "done",
+            updated_at: new Date().toISOString(),
+          },
           {
             onConflict: ["page_url"],
-            updateColumns: ["status", "message"],
+            updateColumns: ["status", "message", "updated_at"],
           }
         );
       } catch (error) {
@@ -80,10 +85,15 @@ const crawl = async ({ url, ignore, domain }) => {
     // Handle other errors
     try {
       await supabase.from("sitemap_internal_link").upsert(
-        { page_url: url, status: true, message: error.message },
+        {
+          page_url: url,
+          status: true,
+          message: error.message,
+          updated_at: new Date().toISOString(),
+        },
         {
           onConflict: ["page_url"],
-          updateColumns: ["status", "message"],
+          updateColumns: ["status", "message", "updated_at"],
         }
       );
     } catch (error) {
@@ -106,8 +116,16 @@ const processWithPages = async (host) => {
         .eq("message", "pending")
         .eq("domain", host)
         .order("created_at", { ascending: true })
-        .limit(5);
+        .limit(1);
       if (data?.length > 0) {
+        const forUpdate = data.map((item) => ({
+          page_url: item.page_url,
+          message: "inProgress",
+          updated_at: new Date().toISOString(),
+        }));
+        await supabase
+          .from("sitemap_internal_link")
+          .upsert(forUpdate, { onConflict: ["page_url"] });
         for (const link of data) {
           await crawl({
             url: link.page_url,
