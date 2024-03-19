@@ -1,7 +1,7 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
 const urlParser = require("url");
-const { supabase } = require("../config/config");
+const { websohambase } = require("../config/config");
 const { validDomain, getRandomUserAgent } = require("../utils/index.js");
 
 const headers = {
@@ -36,7 +36,7 @@ const crawl = async ({ url, ignore, domain }) => {
       .get();
     if (seenUrls[url]) {
       try {
-        await supabase.from("sitemap_internal_link").upsert(
+        await websohambase.from("sitemap_internal_link").upsert(
           {
             page_url: url,
             status: true,
@@ -71,7 +71,7 @@ const crawl = async ({ url, ignore, domain }) => {
           ) {
             seenExternalLink[validUrl] = true;
             try {
-              await supabase
+              await websohambase
                 .from("sitemap_external_link")
                 .insert({ url: validUrl, domain: domain });
             } catch (error) {
@@ -84,7 +84,7 @@ const crawl = async ({ url, ignore, domain }) => {
   } catch (error) {
     // Handle other errors
     try {
-      await supabase.from("sitemap_internal_link").upsert(
+      await websohambase.from("sitemap_internal_link").upsert(
         {
           page_url: url,
           status: true,
@@ -100,7 +100,7 @@ const crawl = async ({ url, ignore, domain }) => {
       console.log(error.message, "error internal link");
     }
 
-    // console.log(response.error, "intenal page error supabase");
+    // console.log(response.error, "intenal page error websohambase");
   }
 };
 const processWithPages = async (host) => {
@@ -109,7 +109,7 @@ const processWithPages = async (host) => {
   let crawlCounter = 2;
   while (run == true) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await websohambase
         .from("sitemap_internal_link")
         .select()
         .eq("status", false)
@@ -123,7 +123,7 @@ const processWithPages = async (host) => {
           message: "inProgress",
           updated_at: new Date().toISOString(),
         }));
-        await supabase
+        await websohambase
           .from("sitemap_internal_link")
           .upsert(forUpdate, { onConflict: ["page_url"] });
         for (const link of data) {

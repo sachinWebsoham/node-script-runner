@@ -1,7 +1,7 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
 const urlParser = require("url");
-const { supabase } = require("../config/config");
+const { supabase, websohambase } = require("../config/config");
 
 let locCounter = 1;
 const locUrlExtractor = async (currentUrl, host) => {
@@ -16,7 +16,7 @@ const locUrlExtractor = async (currentUrl, host) => {
       if (link.includes(".xml")) {
         await locUrlExtractor(link, host);
       } else {
-        await supabase
+        await websohambase
           .from("sitemap_internal_link")
           .insert({ page_url: link, domain: host });
       }
@@ -24,7 +24,7 @@ const locUrlExtractor = async (currentUrl, host) => {
     return;
   } catch (error) {
     console.log("locUrlExtractor Error :", error.message);
-    await supabase
+    await websohambase
       .from("sitemap_xml_link")
       .upsert({ page_url: currentUrl, message: error.message });
   }
