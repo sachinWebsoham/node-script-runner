@@ -45,42 +45,41 @@ const locUrlExtractor = async (currentUrl, host) => {
           locUrlExtractor(sitemapUrl, host);
           run = true;
         }
-      } else {
-        const { host } = urlParser.parse(`https://${process.argv[2]}`);
-        const sitemapUrlList = [
-          "/sitemap.xml",
-          "/sitemap_index.xml",
-          "/sitemap.txt",
-          "/sitemap/",
-          "/wp-sitemap.xml",
-          "/sitemap1.xml",
-          "/blog-sitemap.xml",
-          "/category-sitemap.xml",
-          "/tag-sitemap.xml",
-          "/sitemap.xml.gz",
-          "/sitemap/sitemap.xml",
-        ];
-        let sitemapList = [];
-        for (const sitemap of sitemapUrlList) {
-          try {
-            const url = `https://${process.argv[2]}/${sitemap}`;
-            const response = await axios.get(url);
-            if (response.status == 200) {
-              sitemapList.push(url);
-            }
-          } catch (error) {
-            // console.log(error.message);
-          }
-        }
-        if (sitemapList?.length > 0) {
-          // console.log(sitemapList, ">>>>>");
-          for (const sitemap of sitemapList) {
-            console.log(host, "host");
-            locUrlExtractor(sitemap, host);
-          }
-        }
       }
     }
+    const sitemapUrlList = [
+      "/sitemap.xml",
+      "/sitemap_index.xml",
+      "/sitemap.txt",
+      "/sitemap/",
+      "/wp-sitemap.xml",
+      "/sitemap1.xml",
+      "/blog-sitemap.xml",
+      "/category-sitemap.xml",
+      "/tag-sitemap.xml",
+      "/sitemap.xml.gz",
+      "/sitemap/sitemap.xml",
+    ];
+    let sitemapList = [];
+    for (const sitemap of sitemapUrlList) {
+      try {
+        const url = `https://${process.argv[2]}/${sitemap}`;
+        const response = await axios.get(url);
+        if (response.status == 200) {
+          sitemapList.push(url);
+        }
+      } catch (error) {
+        // console.log(error.message);
+      }
+    }
+    if (sitemapList?.length > 0) {
+      // console.log(sitemapList, ">>>>>");
+      for (const sitemap of sitemapList) {
+        console.log(host, "host");
+        locUrlExtractor(sitemap, host);
+      }
+    }
+    process.exit(0);
   } else {
     console.log("no url found");
   }

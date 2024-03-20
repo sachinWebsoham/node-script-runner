@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const { supabase } = require("../config/config");
+const { websohambase } = require("../config/config");
 const path = require("path");
 const fs = require("fs");
 const csvToJson = require("csvtojson");
@@ -27,7 +27,7 @@ const csvToJson = require("csvtojson");
         await page.goto(
           "https://www.namecheap.com/domains/registration/results/?domain=&type=beast"
         );
-        const { data, error } = await supabase
+        const { data, error } = await websohambase
           .from("sitemap_external_link")
           .select()
           .eq("status", false)
@@ -37,7 +37,7 @@ const csvToJson = require("csvtojson");
             url: item.url,
             status: "pending",
           }));
-          await supabase
+          await websohambase
             .from("sitemap_external_link")
             .upsert(upd, { onConflict: ["url"] });
           console.log("External Link", data?.length);
@@ -81,28 +81,28 @@ const csvToJson = require("csvtojson");
             Price: item.Price,
             status: true,
           }));
-          await supabase
+          await websohambase
             .from("sitemap_external_link")
             .upsert(forUpdate, { onConflict: ["url"] });
-          jsonArray.map(async (item) => {
-            try {
-              if (item.Available == "taken") {
-                await supabase.from("sitemap_taken_domain").insert({
-                  url: `https://${item.Domain}`,
-                  status: item.Available,
-                });
-              } else if (item.Available == "available") {
-                await supabase.from("sitemap_available_domain").insert({
-                  url: `https://${item.Domain}`,
-                  Premium: item.Premium,
-                  Price: item.Price,
-                  status: item.Available,
-                });
-              }
-            } catch (error) {
-              console.log("Error while update", error.message);
-            }
-          });
+          // jsonArray.map(async (item) => {
+          //   try {
+          //     if (item.Available == "taken") {
+          //       await websohambase.from("sitemap_taken_domain").insert({
+          //         url: `https://${item.Domain}`,
+          //         status: item.Available,
+          //       });
+          //     } else if (item.Available == "available") {
+          //       await websohambase.from("sitemap_available_domain").insert({
+          //         url: `https://${item.Domain}`,
+          //         Premium: item.Premium,
+          //         Price: item.Price,
+          //         status: item.Available,
+          //       });
+          //     }
+          //   } catch (error) {
+          //     console.log("Error while update", error.message);
+          //   }
+          // });
           console.log("Checked Domains", (domainLength += forUpdate.length));
           await new Promise((resolve) => setTimeout(resolve, 3000));
           fs.unlinkSync(path.join(downloadPath, "results.csv"));
@@ -119,7 +119,7 @@ const csvToJson = require("csvtojson");
         await page.goto(
           "https://www.namecheap.com/domains/registration/results/?domain=&type=beast"
         );
-        const { data, error } = await supabase
+        const { data, error } = await websohambase
           .from("sitemap_external_link")
           .select()
           .eq("status", "pending")
@@ -129,7 +129,7 @@ const csvToJson = require("csvtojson");
             url: item.url,
             status: "pending",
           }));
-          await supabase
+          await websohambase
             .from("sitemap_external_link")
             .upsert(upd, { onConflict: ["url"] });
           console.log("External Link pending", data?.length);
@@ -173,28 +173,28 @@ const csvToJson = require("csvtojson");
             Price: item.Price,
             status: true,
           }));
-          await supabase
+          await websohambase
             .from("sitemap_external_link")
             .upsert(forUpdate, { onConflict: ["url"] });
-          jsonArray.map(async (item) => {
-            try {
-              if (item.Available == "taken") {
-                await supabase.from("sitemap_taken_domain").insert({
-                  url: `https://${item.Domain}`,
-                  status: item.Available,
-                });
-              } else if (item.Available == "available") {
-                await supabase.from("sitemap_available_domain").insert({
-                  url: `https://${item.Domain}`,
-                  Premium: item.Premium,
-                  Price: item.Price,
-                  status: item.Available,
-                });
-              }
-            } catch (error) {
-              console.log("Error while update", error.message);
-            }
-          });
+          // jsonArray.map(async (item) => {
+          //   try {
+          //     if (item.Available == "taken") {
+          //       await websohambase.from("sitemap_taken_domain").insert({
+          //         url: `https://${item.Domain}`,
+          //         status: item.Available,
+          //       });
+          //     } else if (item.Available == "available") {
+          //       await websohambase.from("sitemap_available_domain").insert({
+          //         url: `https://${item.Domain}`,
+          //         Premium: item.Premium,
+          //         Price: item.Price,
+          //         status: item.Available,
+          //       });
+          //     }
+          //   } catch (error) {
+          //     console.log("Error while update", error.message);
+          //   }
+          // });
           console.log("Checked Domains", (domainLength += forUpdate.length));
           await new Promise((resolve) => setTimeout(resolve, 3000));
           fs.unlinkSync(path.join(downloadPath, "results.csv"));
