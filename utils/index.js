@@ -93,6 +93,53 @@ const checkLinkStatus = async (url) => {
     return error.response ? error.response.data : 0;
   }
 };
+class BloomFilter {
+  constructor(size, numHashes) {
+    this.size = size;
+    this.numHashes = numHashes;
+    this.bitArray = new Array(size).fill(false);
+  }
+
+  // Hash function 1
+  hash1(item) {
+    let hash = 0;
+    for (let i = 0; i < item.length; i++) {
+      hash = (hash << 5) + hash + item.charCodeAt(i);
+    }
+    return Math.abs(hash) % this.size;
+  }
+
+  // Hash function 2
+  hash2(item) {
+    let hash = 0;
+    for (let i = 0; i < item.length; i++) {
+      hash = (hash << 4) + hash + item.charCodeAt(i);
+    }
+    return Math.abs(hash) % this.size;
+  }
+
+  // Add an item to the Bloom filter
+  add(item) {
+    for (let i = 0; i < this.numHashes; i++) {
+      const index = (this.hash1(item) + i * this.hash2(item)) % this.size;
+      this.bitArray[index] = true;
+    }
+  }
+
+  // Check if an item may be in the Bloom filter
+  contains(item) {
+    for (let i = 0; i < this.numHashes; i++) {
+      const index = (this.hash1(item) + i * this.hash2(item)) % this.size;
+      if (!this.bitArray[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+// Example usage:
+const filter = new BloomFilter(10000000, 5);
 
 module.exports = {
   validDomain,
@@ -100,4 +147,5 @@ module.exports = {
   ignoreExtention,
   getRandomUserAgent,
   checkLinkStatus,
+  filter,
 };

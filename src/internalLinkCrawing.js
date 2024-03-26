@@ -1,8 +1,15 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
 const urlParser = require("url");
-const { websohambase } = require("../config/config");
+const { websohambase, supabase } = require("../config/config");
 const { validDomain, getRandomUserAgent } = require("../utils/index.js");
+const redis = require("../config/redis.js");
+
+function generateKey() {
+  // Generate a random number between 10000 and 99999 (inclusive)
+  return `${Math.floor(Math.random() * 90000) + 10000}-updates`;
+}
+const keyForupdates = generateKey();
 
 const headers = {
   "User-Agent": getRandomUserAgent(),
@@ -14,18 +21,16 @@ const headers = {
   "Upgrade-Insecure-Requests": "1",
   "Cache-Control": "max-age=0",
 };
-
-const seenUrls = {};
-const seenExternalLink = {};
+// const seenUrls = {};
 let counter = 1;
 const crawl = async ({ url, ignore, domain }) => {
   try {
-    if (seenUrls[url]) return;
-    seenUrls[url] = true;
+    // if (seenUrls[url]) return;
+    // seenUrls[url] = true;
     const { host, protocol } = urlParser.parse(url);
     // console.log(url, ">>>>>>>>>");
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const response = await axios.get(url, headers);
+    // await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await axios.get(url);
     const contentType = response.headers["content-type"];
 
     if (!contentType.includes("text/html")) return;
@@ -34,26 +39,16 @@ const crawl = async ({ url, ignore, domain }) => {
     const links = $("a")
       .map((i, link) => link.attribs.href)
       .get();
-    if (seenUrls[url]) {
-      try {
-        await websohambase.from("sitemap_internal_link").upsert(
-          {
-            page_url: url,
-            status: true,
-            message: "done",
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: ["page_url"],
-            updateColumns: ["status", "message", "updated_at"],
-          }
-        );
-      } catch (error) {
-        console.log(error.message, "internal link update");
-      }
-
-      // console.log(error, "update internal link");
-    }
+    await redis.sadd(
+      keyForupdates,
+      JSON.stringify({
+        page_url: url,
+        status: true,
+        message: "done",
+        updated_at: new Date().toISOString(),
+      })
+    );
+    // console.log(error, "update internal link");
     console.log(`Crawling At Page no.: ${counter++}`);
 
     if (links?.length > 0) {
@@ -64,18 +59,18 @@ const crawl = async ({ url, ignore, domain }) => {
             linkHostname = linkHostname.replace(/^www\./, "");
           }
           const validUrl = validDomain(linkHostname);
-          if (
-            validUrl &&
-            validUrl !== "Invalid domain" &&
-            !seenExternalLink[validUrl]
-          ) {
-            seenExternalLink[validUrl] = true;
-            try {
-              await websohambase
-                .from("sitemap_external_link")
-                .insert({ url: validUrl, domain: domain });
-            } catch (error) {
-              console.log(error.message, "external links");
+          if (validUrl && validUrl !== "Invalid domain") {
+            const check = await redis.sismember("externalLink", validUrl);
+            if (check == 0) {
+              console.log(validUrl);
+              await redis.sadd("externalLink", validUrl);
+              try {
+                await websohambase
+                  .from("sitemap_external_link")
+                  .insert({ url: validUrl, domain: domain });
+              } catch (error) {
+                console.log(error.message, "external links");
+              }
             }
           }
         }
@@ -105,10 +100,10 @@ const crawl = async ({ url, ignore, domain }) => {
 };
 const processWithPages = async (host) => {
   let run = true;
-  console.log(run, "run");
-  let crawlCounter = 2;
+  let crawlCounter = 1;
   while (run == true) {
     try {
+      console.log("start");
       const { data, error } = await websohambase
         .from("sitemap_internal_link")
         .select()
@@ -116,8 +111,11 @@ const processWithPages = async (host) => {
         .eq("message", "pending")
         .eq("domain", host)
         .order("created_at", { ascending: true })
-        .limit(1);
+        .limit(5);
+      // console.log(data, "<<<<<<");
       if (data?.length > 0) {
+        // when data get by db then we remove all update pages value in redis
+        await redis.del(keyForupdates);
         const forUpdate = data.map((item) => ({
           page_url: item.page_url,
           message: "inProgress",
@@ -134,6 +132,18 @@ const processWithPages = async (host) => {
           });
           console.log("crawl end for start", crawlCounter++);
         }
+        try {
+          const redisUpdates = await redis.smembers(keyForupdates);
+          const saveData = redisUpdates.map((item) => {
+            return JSON.parse(item);
+          });
+          // console.log(saveData, ">>>>");
+          await websohambase
+            .from("sitemap_internal_link")
+            .upsert(saveData, { onConflict: ["page_url"] });
+        } catch (error) {
+          // console.log(error.message);
+        }
       } else if (data?.length == 0 && !error) {
         run = false;
       }
@@ -146,6 +156,10 @@ const processWithPages = async (host) => {
 (async () => {
   if (process.argv.length > 2) {
     const host = process.argv[2];
+    const response = await websohambase.from("sitemap_external_link").select();
+    response?.data.map((item) => {
+      redis.sadd("externalLink", item.url);
+    });
     await processWithPages(host);
   } else {
     console.log("no url found");
