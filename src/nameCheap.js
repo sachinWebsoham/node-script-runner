@@ -19,7 +19,7 @@ const csvToJson = require("csvtojson");
       downloadPath: downloadPath,
     });
     let run = true;
-
+    let datalength = 0;
     let domainLength = 0;
     while (run == true) {
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -31,7 +31,7 @@ const csvToJson = require("csvtojson");
           .from("sitemap_external_link")
           .select()
           .eq("status", false)
-          .limit(100);
+          .limit(80);
         if (data?.length > 0) {
           const upd = data.map((item) => ({
             url: item.url,
@@ -40,13 +40,15 @@ const csvToJson = require("csvtojson");
           await websohambase
             .from("sitemap_external_link")
             .upsert(upd, { onConflict: ["url"] });
-          console.log("External Link", data?.length);
+          console.log(
+            "External Link",
+            `${(datalength += data.length)} + ${data.length}`
+          );
           await new Promise((resolve) => setTimeout(resolve, 3000));
           const url = data.map((link) => {
             if (link.url?.includes("http")) return link.url;
           });
           const urlString = url.join(" ");
-          console.log(urlString);
           await page.waitForSelector(
             "#react-nc-search > div > section > div > form > button",
             { timeout: 60000 }
