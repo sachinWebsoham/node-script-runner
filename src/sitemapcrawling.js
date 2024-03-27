@@ -42,7 +42,7 @@ const locUrlExtractor = async (currentUrl, host) => {
       if (sitemapUrls?.length > 0) {
         for (const sitemapUrl of sitemapUrls) {
           // console.log(host, "host");
-          locUrlExtractor(sitemapUrl, host);
+          await locUrlExtractor(sitemapUrl, host);
           run = true;
         }
       }
@@ -76,7 +76,7 @@ const locUrlExtractor = async (currentUrl, host) => {
       // console.log(sitemapList, ">>>>>");
       for (const sitemap of sitemapList) {
         console.log(host, "host");
-        locUrlExtractor(sitemap, host);
+        await locUrlExtractor(sitemap, host);
       }
     }
     process.exit(0);
